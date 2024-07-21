@@ -24,4 +24,5 @@ class UI:
         match event.key:
             case pygame.K_q: sys.exit()
             case pygame.K_F11: pygame.display.toggle_fullscreen()
+            case pygame.K_F2: self.game.debug = not self.game.debug
             case _: logger.debug(f"{event.key}")
