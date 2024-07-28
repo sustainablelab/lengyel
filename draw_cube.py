@@ -62,12 +62,20 @@ class GPU:
             0, 0, 0, 1,
             ])
         a = 1 # self.game.scale
-        self.view_mat = array('f', [
-            a, 0, 0, 0,
-            0, a, 0, 0,
-            0, 0, a, 0,
-            0, 0, 0, 1,
-            ])
+        if 0:
+            self.view_mat = array('f', [
+                a, 0, 0, 0,
+                0, a, 0, 0,
+                0, 0, a, 0,
+                0, 0, 0, 1,
+                ])
+        else:
+            self.view_mat = array('f', [
+                 2,  1, 0, 0,
+                 0,  2, 0, 0,
+                 0.8, -0.8, 1, 0,
+                 0,  0, 0, 1,
+                ])
 
     def load_shaders(self) -> dict:
         shaders = {}
@@ -91,10 +99,16 @@ class GPU:
 
     def render(self) -> None:
         self.ctx.clear(0.05,0.05,0.05)
-        self.ctx.blend_func = moderngl.PREMULTIPLIED_ALPHA # Makes text background transparent
+        # self.ctx.blend_func = moderngl.PREMULTIPLIED_ALPHA # Makes text background transparent
         self.ctx.enable(moderngl.BLEND)
+        # Draw cube
+        if not self.game.debug: self.ctx.enable(moderngl.CULL_FACE)
+        self.ctx.wireframe = self.game.debug
         self.render_test_cube()
-        self.render_test_square()
+        self.ctx.wireframe = False
+        self.ctx.disable(moderngl.CULL_FACE)
+        # Draw debug stuff
+        # self.render_test_square()
         if self.game.text_hud: self.render_hud()
         self.ctx.disable(moderngl.BLEND)
         pygame.display.flip()
@@ -178,33 +192,39 @@ class GPU:
         self.shaders['shader_test_cube']['proj_mat'] = self.proj_mat # aspect ratio
         self.shaders['shader_test_cube']['view_mat'] = self.view_mat # zoom and pan
         # Define the cube in world space.
-        k = 0.3
+        k = 0.15
         # Eight vertices
         vbo = self.ctx.buffer(data=array('f', [
-            -k, k, k,   # 0 (Front top left)
-             k, k, k,   # 1 (Front top right)
-            -k,-k, k,   # 2 (Front bottom left)
-             k,-k, k,   # 3 (Front bottom right)
-            -k, k,-k,   # 4 (Back top left)
-             k, k,-k,   # 5 (Back top right)
-            -k,-k,-k,   # 6 (Back bottom left)
-             k,-k,-k,   # 7 (Back bottom right)
+            #position   color
+            -k, k, k,   0.0,1.0,0.0,    # 0 (Front top left)
+             k, k, k,   0.0,0.5,0.0,    # 1 (Front top right)
+            -k,-k, k,   0.0,0.2,0.0,    # 2 (Front bottom left)
+             k,-k, k,   0.0,0.4,0.0,    # 3 (Front bottom right)
+            -k, k,-k,   1.0,0.0,0.0,    # 4 (Back top left)
+             k, k,-k,   0.5,0.0,0.0,    # 5 (Back top right)
+            -k,-k,-k,   0.2,0.0,0.0,    # 6 (Back bottom left)
+             k,-k,-k,   0.4,0.0,0.0,    # 7 (Back bottom right)
             ]))
         # 12 triangles
+        # TODO: correct winding so that all sides "face" outwards
         indices = array('B', [ # 'B": uint8, 'I': uint32
-            0,1,2, # Front
+            0,2,1, # Front
             1,2,3, # Front
             4,5,6, # Back
-            5,7,6, # Back
+            6,5,7, # Back
             5,1,7, # Right
-            7,1,3, # Right
-            0,4,2, # Left
-            6,2,0, # Left
+            1,3,7, # Right
+            0,4,6, # Left
+            0,6,2, # Left
+            0,5,4, # Top
+            0,1,5, # Top
+            2,6,7, # Bottom
+            2,7,3, # Bottom
             ])
         ibo = self.ctx.buffer(data=indices)
         vao = self.ctx.vertex_array(
                 self.shaders['shader_test_cube'],
-                [(vbo, '3f', 'vert_pos')],
+                [(vbo, '3f 3f', 'vert_pos', 'vert_color')],
                 index_buffer=ibo,
                 index_element_size=indices.itemsize)
         # Render
@@ -215,7 +235,7 @@ class GPU:
         # vao.release()
 
     def render_test_square(self) -> None:
-        k = 0.2
+        k = 0.15
         vbo = self.ctx.buffer(data=array('f', [-k,k, k,k, -k,-k, k,-k]))
         vao = self.ctx.vertex_array(
                 self.shaders['shader_test_square'],
