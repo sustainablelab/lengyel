@@ -6,7 +6,7 @@
 import pygame
 
 class OsWindow:
-    def __init__(self, gpu_render:bool) -> None:
+    def __init__(self, gpu_render:bool=True) -> None:
         if gpu_render:
             flags = pygame.RESIZABLE | pygame.OPENGL | pygame.DOUBLEBUF
         else:

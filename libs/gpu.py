@@ -21,13 +21,8 @@ class GPU:
         # Load shaders
         self.shaders = self.load_shaders()
 
-        # For test square shader
-        self.view = array('f', [
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1,
-            ])
+        # Update transforms
+        self.update_transforms()
 
     def log_ctx_info(self) -> None:
         ### GL_VENDOR: Intel
@@ -50,13 +45,38 @@ class GPU:
         with open('shaders/test_square.frag') as f: frag = f.read()
         shader = self.ctx.program(vertex_shader=vert, fragment_shader = frag)
         shaders['shader_test_square'] = shader
+        # Player
+        with open('shaders/debug_player.vert') as f: vert = f.read()
+        with open('shaders/debug_player.frag') as f: frag = f.read()
+        shader = self.ctx.program(vertex_shader=vert, fragment_shader = frag)
+        shaders['shader_debug_player'] = shader
         return shaders
+
+    def update_transforms(self) -> None:
+        """Update transforms that are global to all GPU rendering."""
+        # Correct for aspect ratio
+        a = self.game.os_window.size[1]/self.game.os_window.size[0]
+        self.proj_mat = array('f', [
+            a, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+            ])
+        # Zoom out
+        a = 1 # self.game.scale
+        self.view_mat = array('f', [
+            a, 0, 0, 0,
+            0, a, 0, 0,
+            0, 0, a, 0,
+            0, 0, 0, 1,
+            ])
 
     def render(self) -> None:
         self.ctx.clear(0.1,0.1,0.8)
         self.ctx.blend_func = moderngl.PREMULTIPLIED_ALPHA # Makes text background transparent
         self.ctx.enable(moderngl.BLEND)
         self.render_test_square()
+        self.render_player()
         if self.game.text_hud: self.render_hud()
         self.ctx.disable(moderngl.BLEND)
         pygame.display.flip()
@@ -115,18 +135,43 @@ class GPU:
 
     def render_test_square(self) -> None:
         """Test aspect ratio with this square."""
+        # Define the square in world space
         k = 0.2
         vbo = self.ctx.buffer(data=array('f', [-k,k, k,k, -k,-k, k,-k]))
         vao = self.ctx.vertex_array(
                 self.shaders['shader_test_square'],
                 [(vbo, '2f', 'vert_pos')])
-        # Correct for aspect ratio
-        a = self.game.os_window.size[1]/self.game.os_window.size[0]
-        self.shaders['shader_test_square']['proj_mat'] = array('f', [
-            a, 0, 0, 0,
+        # Apply transforms
+        self.shaders['shader_test_square']['proj_mat'] = self.proj_mat # aspect ratio
+        self.shaders['shader_test_square']['view_mat'] = self.view_mat # zoom and pan
+        # Render
+        vao.render(mode=moderngl.TRIANGLE_STRIP)
+
+    def render_player(self) -> None:
+        # Draw a debug rect
+        size = self.game.player.size
+        x,y = size
+        vbo = self.ctx.buffer(data=array('f', [0,y, x,y, 0,0, x,0]))
+        vao = self.ctx.vertex_array(
+                self.shaders['shader_debug_player'],
+                [(vbo, '2f', 'vert_pos')])
+        # Translate
+        x,y = self.game.player.pos                      # Player position in world space (game coordinates)
+        # Let u,v be the player position in model space
+        # Move the player to world space position x,y
+        # | 1, 0, 0, x ||u| = |u + x|
+        # | 0, 1, 0, y ||v|   |v + y|
+        # | 0, 0, 1, 0 ||0|   |0    |
+        # | 0, 0, 0, 1 ||1|   |1    |
+        self.shaders['shader_debug_player']['xlat_mat'] = array('f', [
+            1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0,
-            0, 0, 0, 1,
+            x, y, 0, 1,
             ])
-        self.shaders['shader_test_square']['view_mat'] = self.view
+        # Correct for aspect ratio
+        self.shaders['shader_debug_player']['proj_mat'] = self.proj_mat # aspect ratio
+        self.shaders['shader_debug_player']['view_mat'] = self.view_mat # zoom and pan
+        # Testing mouse zoom
+        self.shaders['shader_debug_player']['test_mat'] = self.game.test_matrix
         vao.render(mode=moderngl.TRIANGLE_STRIP)

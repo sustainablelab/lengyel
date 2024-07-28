@@ -33,9 +33,3 @@ class Text:
         return self.font.get_linesize()
 
 
-class TextHud(Text):
-    def __init__(self, game, size:int=15) -> None:
-        super().__init__(size)
-        self.game = game
-        self.msg += f"FPS: {self.game.clock.get_fps():0.1f}"
-        self.msg += f"\nWindow: {self.game.os_window.size}"
