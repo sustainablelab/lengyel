@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
-"""TODO: write a script docstring.
+"""Draw a cube as a starting point to work on 3D transforms.
+
+F2: switch between filled and triangulated mesh wireframe.
 """
 
 from pathlib import Path
@@ -14,6 +16,7 @@ from libs.os_window import OsWindow
 from libs.text import Text
 import moderngl
 import sys
+import math
 
 def shutdown(filename:str) -> None:
     logger.info(f"Shutdown {filename}")
@@ -39,9 +42,10 @@ class GPU:
 
         # Load shaders
         self.shaders = self.load_shaders()
+        self.t = 0
 
         # Update transforms
-        self.update_transforms()
+        self.update_transforms(self.t)
 
     def log_ctx_info(self) -> None:
         ### GL_VENDOR: Intel
@@ -51,8 +55,11 @@ class GPU:
         ### GL_VERSION: 4.6 (Compatibility Profile) Mesa 23.2.1-1ubuntu3.1~22.04.2
         logger.debug(f"GL_VERSION: {self.ctx.info['GL_VERSION']}")
 
-    def update_transforms(self) -> None:
-        """Update transforms that are global to all GPU rendering."""
+    def update_transforms(self, t:float) -> None:
+        """Update transforms that are global to all GPU rendering.
+
+        t -- time (a value that increases at a constant rate as the game runs)
+        """
         # Correct for aspect ratio
         a = self.game.os_window.size[1]/self.game.os_window.size[0]
         self.proj_mat = array('f', [
@@ -69,13 +76,30 @@ class GPU:
                 0, 0, a, 0,
                 0, 0, 0, 1,
                 ])
-        else:
+        elif 0:
             self.view_mat = array('f', [
                  2,  1, 0, 0,
                  0,  2, 0, 0,
                  0.8, -0.8, 1, 0,
                  0,  0, 0, 1,
                 ])
+        elif 0: # TODO: find an orthogonal coordinate system with unit length basis vectors
+            self.view_mat = array('f', [
+                 2,  1, 0, 0,
+                 0,  2, 0, 0,
+                 0.8, -0.8, 1, 0,
+                 0,  0, 0, 1,
+                ])
+        else:
+            c=math.cos(t)
+            s=math.sin(t)
+            self.view_mat = array('f', [
+                 c,    1,-s, 0,
+                 0,    1, 0, 0,
+                 s, -0.1, c, 0,
+                 0, 0, 0, 1,
+                ])
+
 
     def load_shaders(self) -> dict:
         shaders = {}
@@ -98,6 +122,8 @@ class GPU:
         return shaders
 
     def render(self) -> None:
+        self.t += 0.01
+        self.update_transforms(self.t)
         self.ctx.clear(0.05,0.05,0.05)
         # self.ctx.blend_func = moderngl.PREMULTIPLIED_ALPHA # Makes text background transparent
         self.ctx.enable(moderngl.BLEND)
@@ -208,8 +234,8 @@ class GPU:
         # 12 triangles
         # TODO: correct winding so that all sides "face" outwards
         indices = array('B', [ # 'B": uint8, 'I': uint32
-            0,2,1, # Front
-            1,2,3, # Front
+            0,2,3, # Front
+            3,1,0, # Front
             4,5,6, # Back
             6,5,7, # Back
             5,1,7, # Right
@@ -232,7 +258,7 @@ class GPU:
         # vao.render(mode=moderngl.LINE_STRIP)
         # vao.render(mode=moderngl.POINTS)
         # vao.render(mode=moderngl.LINES)
-        # vao.release()
+        vao.release()
 
     def render_test_square(self) -> None:
         k = 0.15
